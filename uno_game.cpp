@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <random>
 #include <chrono>
+#include <iostream>
 
 UnoGame::UnoGame() {
     // Initialize the deck
@@ -11,13 +12,30 @@ UnoGame::UnoGame() {
 
 void UnoGame::play() {
     // Set up the window
-    sf::RenderWindow window(sf::VideoMode(800, 600), "Uno Game");
+    sf::RenderWindow window(sf::VideoMode(1920 , 1080), "Uno Game");
 
-    // Set up the game state
+    std::cout << "Initializing deck..." << std::endl;
+    initializeDeck();
+    std::cout << "Deck size after initialization: " << deck.size() << std::endl;
+
+    std::cout << "Shuffling deck..." << std::endl;
+    shuffleDeck();
+
+    std::cout << "Dealing cards..." << std::endl;
     std::vector<Card> playerHand, computerHand;
     dealCards(playerHand, computerHand);
-    Card currentCard = discardPile.back();
-    discardPile.pop_back();
+    std::cout << "Player hand size: " << playerHand.size() << ", Computer hand size: " << computerHand.size() << std::endl;
+
+    if (deck.empty()) {
+        std::cout << "Error: Deck is empty after dealing. Cannot start the game." << std::endl;
+        return;
+    }
+
+    std::cout << "Drawing initial card..." << std::endl;
+    Card currentCard = deck.back();
+    deck.pop_back();
+    discardPile.push_back(currentCard);
+    std::cout << "Initial card drawn. Deck size: " << deck.size() << ", Discard pile size: " << discardPile.size() << std::endl;
 
     while (window.isOpen()) {
         // Handle events
@@ -50,20 +68,29 @@ void UnoGame::initializeDeck() {
         // Number cards (0-9)
         for (int j = 0; j < 10; j++) {
             Card::Value value = static_cast<Card::Value>(j);
-            std::string imagePath = cardImagePaths[getCardImagePath(color, value)];
-            deck.emplace_back(color, value, imagePath);
-
-            // Add a second card for 1-9
-            if (j != 0) {
+            std::string key = getCardImagePath(color, value);
+            if (!key.empty()) {
+                std::string imagePath = cardImagePaths[key];
+                std::cout << "Adding number card: " << key << " -> " << imagePath << std::endl;
                 deck.emplace_back(color, value, imagePath);
+
+                if (j != 0) {
+                    std::cout << "Adding second number card: " << key << " -> " << imagePath << std::endl;
+                    deck.emplace_back(color, value, imagePath);
+                }
             }
         }
 
         // Action cards (DRAW_TWO, REVERSE, SKIP)
         for (Card::Value action : {Card::Value::DRAW_TWO, Card::Value::REVERSE, Card::Value::SKIP}) {
-            std::string imagePath = cardImagePaths[getCardImagePath(color, action)];
-            deck.emplace_back(color, action, imagePath);
-            deck.emplace_back(color, action, imagePath);  // Add two of each
+            std::string key = getCardImagePath(color, action);
+            if (!key.empty()) {
+                std::string imagePath = cardImagePaths[key];
+                std::cout << "Adding action card: " << key << " -> " << imagePath << std::endl;
+                deck.emplace_back(color, action, imagePath);
+                std::cout << "Adding second action card: " << key << " -> " << imagePath << std::endl;
+                deck.emplace_back(color, action, imagePath);
+            }
         }
     }
     //deck.emplace_back(Card::Color::RED, Card::Value::ZERO, cardImagePaths[getCardImagePath(Card::Color::RED, Card::Value::ZERO)]);
@@ -110,8 +137,20 @@ void UnoGame::initializeDeck() {
 
     // Add wild cards
     for (int i = 0; i < 4; i++) {
-        deck.emplace_back(Card::Color::WILD, Card::Value::WILD, cardImagePaths[getCardImagePath(Card::Color::WILD, Card::Value::WILD)]);
-        deck.emplace_back(Card::Color::WILD, Card::Value::WILD_DRAW_FOUR, cardImagePaths[getCardImagePath(Card::Color::WILD, Card::Value::WILD_DRAW_FOUR)]);
+        std::string wildKey = getCardImagePath(Card::Color::WILD, Card::Value::WILD);
+        std::string wildDrawFourKey = getCardImagePath(Card::Color::WILD, Card::Value::WILD_DRAW_FOUR);
+
+        if (!wildKey.empty()) {
+            std::string wildPath = cardImagePaths[wildKey];
+            std::cout << "Adding wild card: " << wildKey << " -> " << wildPath << std::endl;
+            deck.emplace_back(Card::Color::WILD, Card::Value::WILD, wildPath);
+        }
+
+        if (!wildDrawFourKey.empty()) {
+            std::string wildDrawFourPath = cardImagePaths[wildDrawFourKey];
+            std::cout << "Adding wild draw four: " << wildDrawFourKey << " -> " << wildDrawFourPath << std::endl;
+            deck.emplace_back(Card::Color::WILD, Card::Value::WILD_DRAW_FOUR, wildDrawFourPath);
+        }
     }
 
     // Add Hot Death variant cards
@@ -202,6 +241,9 @@ std::string UnoGame::getCardImagePath(Card::Color color, Card::Value value) {
     case Card::Color::WILD:
         colorStr = "WILD";
         break;
+    default:
+        std::cout << "Warning: Unknown color: " << static_cast<int>(color) << std::endl;
+        return "";
     }
 
     std::string valueStr;
@@ -218,17 +260,21 @@ std::string UnoGame::getCardImagePath(Card::Color color, Card::Value value) {
     case Card::Value::NINE:
         valueStr = std::to_string(static_cast<int>(value));
         break;
-    case Card::Value::DRAW_TWO:
-        valueStr = "DRAW_TWO";
+    case Card::Value::DRAW_TWO: 
+        valueStr = "DRAW_TWO"; 
         break;
-    case Card::Value::REVERSE:
-        return "REVERSE"; // No color prefix
-    case Card::Value::SKIP:
-        return "SKIP"; // No color prefix
-    case Card::Value::WILD:
-        return "WILD"; // Already handled in color switch
-    case Card::Value::WILD_DRAW_FOUR:
-        return "WILD_DRAW_FOUR"; // No color prefix
+    case Card::Value::REVERSE: 
+        valueStr = "REVERSE"; 
+        break;
+    case Card::Value::SKIP: 
+        valueStr = "SKIP"; 
+        break;
+    case Card::Value::WILD: 
+        valueStr = "WILD"; 
+        break;
+    case Card::Value::WILD_DRAW_FOUR: 
+        valueStr = "WILD_DRAW_FOUR"; 
+        break;
     //case Card::Value::SWAP_HANDS:
     //    valueStr = "SWAP_HANDS";
     //    break;
@@ -364,14 +410,17 @@ std::string UnoGame::getCardImagePath(Card::Color color, Card::Value value) {
     //case Card::Value::YANG:
     //    valueStr = "YANG";
     //    break;
-    // default: return "";
+    default:
+        std::cout << "Warning: Unknown value: " << static_cast<int>(value) << std::endl;
+        return "";
     }
 
-    if (color != Card::Color::WILD && value != Card::Value::REVERSE && value != Card::Value::SKIP) {
-        return colorStr + valueStr;
+    std::string key = colorStr + valueStr;
+    if (cardImagePaths.find(key) == cardImagePaths.end()) {
+        std::cout << "Warning: No image path found for key: " << key << std::endl;
+        return "";
     }
-
-    return "";
+    return key;
 }
 
 void UnoGame::shuffleDeck() {
@@ -381,21 +430,22 @@ void UnoGame::shuffleDeck() {
 }
 
 void UnoGame::dealCards(std::vector<Card>& playerHand, std::vector<Card>& computerHand) {
-    for (int i = 0; i < 7; i++) {
-        if (!deck.empty()) {
-            playerHand.push_back(deck.back());
-            deck.pop_back();
-        }
+    playerHand.clear();
+    computerHand.clear();
+
+    for (int i = 0; i < 7 && !deck.empty(); ++i) {
+        playerHand.push_back(deck.back());
+        deck.pop_back();
+
         if (!deck.empty()) {
             computerHand.push_back(deck.back());
             deck.pop_back();
         }
-        if (deck.empty()) {
-            // Reshuffle discard pile if deck is empty
-            deck = discardPile;
-            discardPile.clear();
-            shuffleDeck();
-        }
+    }
+
+    if (playerHand.empty() || computerHand.empty()) {
+        std::cout << "Warning: Not enough cards to deal. Player: " << playerHand.size()
+            << ", Computer: " << computerHand.size() << std::endl;
     }
 }
 

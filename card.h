@@ -23,12 +23,12 @@ public:
     const sf::Sprite& getSprite() const { return sprite; }
     void draw(sf::RenderWindow& window, float x, float y) const;
 
-    bool isField = false;
-    bool isAttack = false;
-    bool isDefense = false;
-    bool isGlobal = false;
-    bool isTechnical = false;
-    bool isDirectedAttack = false;
+    //bool isField = false;
+    //bool isAttack = false;
+    //bool isDefense = false;
+    //bool isGlobal = false;
+    //bool isTechnical = false;
+    //bool isDirectedAttack = false;
 
 private:
     Color color;

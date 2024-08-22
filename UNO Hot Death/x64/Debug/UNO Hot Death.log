@@ -1,10 +1,10 @@
 ﻿  main.cpp
   uno_game.cpp
-C:\Users\Aaron Scheffler\Desktop\UNO Hot Death\uno_game.cpp(380,71): warning C4244: 'argument': conversion from '_Rep' to 'unsigned int', possible loss of data
-C:\Users\Aaron Scheffler\Desktop\UNO Hot Death\uno_game.cpp(380,71): warning C4244:         with
-C:\Users\Aaron Scheffler\Desktop\UNO Hot Death\uno_game.cpp(380,71): warning C4244:         [
-C:\Users\Aaron Scheffler\Desktop\UNO Hot Death\uno_game.cpp(380,71): warning C4244:             _Rep=std::chrono::system_clock::rep
-C:\Users\Aaron Scheffler\Desktop\UNO Hot Death\uno_game.cpp(380,71): warning C4244:         ]
-C:\Users\Aaron Scheffler\Desktop\UNO Hot Death\uno_game.cpp(405,37): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\Aaron Scheffler\Desktop\UNO Hot Death\uno_game.cpp(412,71): warning C4244: 'argument': conversion from '_Rep' to 'unsigned int', possible loss of data
+C:\Users\Aaron Scheffler\Desktop\UNO Hot Death\uno_game.cpp(412,71): warning C4244:         with
+C:\Users\Aaron Scheffler\Desktop\UNO Hot Death\uno_game.cpp(412,71): warning C4244:         [
+C:\Users\Aaron Scheffler\Desktop\UNO Hot Death\uno_game.cpp(412,71): warning C4244:             _Rep=std::chrono::system_clock::rep
+C:\Users\Aaron Scheffler\Desktop\UNO Hot Death\uno_game.cpp(412,71): warning C4244:         ]
+C:\Users\Aaron Scheffler\Desktop\UNO Hot Death\uno_game.cpp(437,37): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
   Generating Code...
   UNO Hot Death.vcxproj -> C:\Users\Aaron Scheffler\Desktop\UNO Hot Death\x64\Debug\UNO Hot Death.exe
