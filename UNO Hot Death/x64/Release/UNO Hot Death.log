@@ -1,0 +1,14 @@
+﻿  card.cpp
+  main.cpp
+  uno_game.cpp
+C:\Users\Aaron Scheffler\Desktop\UNO Hot Death\uno_game.cpp(384,71): warning C4244: 'argument': conversion from '_Rep' to 'unsigned int', possible loss of data
+C:\Users\Aaron Scheffler\Desktop\UNO Hot Death\uno_game.cpp(384,71): warning C4244:         with
+C:\Users\Aaron Scheffler\Desktop\UNO Hot Death\uno_game.cpp(384,71): warning C4244:         [
+C:\Users\Aaron Scheffler\Desktop\UNO Hot Death\uno_game.cpp(384,71): warning C4244:             _Rep=std::chrono::system_clock::rep
+C:\Users\Aaron Scheffler\Desktop\UNO Hot Death\uno_game.cpp(384,71): warning C4244:         ]
+C:\Users\Aaron Scheffler\Desktop\UNO Hot Death\uno_game.cpp(400,37): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+  Generating code
+  Previous IPDB not found, fall back to full compilation.
+  All 341 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Finished generating code
+  UNO Hot Death.vcxproj -> C:\Users\Aaron Scheffler\Desktop\UNO Hot Death\x64\Release\UNO Hot Death.exe
