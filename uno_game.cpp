@@ -1,61 +1,182 @@
 #include "uno_game.h"
 #include <algorithm>
-#include <random>
 #include <chrono>
 #include <iostream>
 
-UnoGame::UnoGame() {
-    // Initialize the deck
+UnoGame::UnoGame() : playerTurn(true), cardBackPath("C:/Users/Aaron Scheffler/Desktop/UNO Hot Death/cards/back.png") {
+    window = std::make_unique<sf::RenderWindow>(sf::VideoMode(1920, 1080), "Uno Game");
+
+    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+    rng.seed(seed);
+
     initializeDeck();
     shuffleDeck();
+
+    if (cardBackPath.empty()) {
+        std::cerr << "Warning: Card back path is empty" << std::endl;
+        cardBackPath = "C:/Users/Aaron Scheffler/Desktop/UNO Hot Death/cards/back.png";
+    }
+
+    if (!font.loadFromFile("C:/Users/Aaron Scheffler/Documents/Fonts/Lato/Lato-Regular.ttf")) {
+        std::cerr << "Failed to load font" << std::endl;
+    }
 }
 
 void UnoGame::play() {
-    // Set up the window
-    sf::RenderWindow window(sf::VideoMode(1920 , 1080), "Uno Game");
-
-    std::cout << "Initializing deck..." << std::endl;
-    initializeDeck();
-    std::cout << "Deck size after initialization: " << deck.size() << std::endl;
-
-    std::cout << "Shuffling deck..." << std::endl;
-    shuffleDeck();
-
-    std::cout << "Dealing cards..." << std::endl;
     std::vector<Card> playerHand, computerHand;
     dealCards(playerHand, computerHand);
-    std::cout << "Player hand size: " << playerHand.size() << ", Computer hand size: " << computerHand.size() << std::endl;
 
-    if (deck.empty()) {
-        std::cout << "Error: Deck is empty after dealing. Cannot start the game." << std::endl;
+    currentCard = drawInitialCard();
+
+    while (window->isOpen()) {
+        sf::Event event;
+        while (window->pollEvent(event)) {
+            if (event.type == sf::Event::Closed)
+                window->close();
+
+            if (playerTurn && event.type == sf::Event::MouseButtonPressed) {
+                handlePlayerMove(event, playerHand);
+            }
+        }
+
+        if (!playerTurn) {
+            handleComputerMove(computerHand);
+            playerTurn = true;
+        }
+
+        window->clear(sf::Color::Green);
+        drawGameState(playerHand, computerHand);
+        window->display();
+
+        if (isGameOver(playerHand, computerHand)) {
+            displayWinner(playerHand.empty());
+            sf::sleep(sf::seconds(3));
+            break;
+        }
+    }
+}
+
+void UnoGame::handlePlayerMove(const sf::Event& event, std::vector<Card>& playerHand) {
+    if (event.type != sf::Event::MouseButtonPressed || event.mouseButton.button != sf::Mouse::Left) {
         return;
     }
 
-    std::cout << "Drawing initial card..." << std::endl;
-    Card currentCard = deck.back();
-    deck.pop_back();
-    discardPile.push_back(currentCard);
-    std::cout << "Initial card drawn. Deck size: " << deck.size() << ", Discard pile size: " << discardPile.size() << std::endl;
+    sf::Vector2i mousePos = sf::Mouse::getPosition(*window);
+    sf::Vector2f mousePosF(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y));
 
-    while (window.isOpen()) {
-        // Handle events
-        sf::Event event;
-        while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed)
-                window.close();
-        }
-
-        // Clear the window
-        window.clear(sf::Color::White);
-
-        // Draw the game elements
-        drawCards(window, playerHand, currentCard, 200, 400);
-        drawCards(window, computerHand, currentCard, 200, 200);
-        drawCard(window, currentCard, 400, 300);
-
-        // Update the window
-        window.display();
+    // Check if the player clicked on the deck to draw a card
+    sf::FloatRect deckBounds(window->getSize().x / 2 + 100, window->getSize().y / 2 - 75, 100, 150);
+    if (deckBounds.contains(mousePosF)) {
+        drawCardFromDeck(playerHand);
+        playerTurn = false;
+        return;
     }
+
+    // Check if the player clicked on a card in their hand
+    for (size_t i = 0; i < playerHand.size(); ++i) {
+        sf::FloatRect cardBounds(200 + i * 50, 800, 100, 150);
+        if (cardBounds.contains(mousePosF)) {
+            if (isValidMove(playerHand[i])) {
+                currentCard = playerHand[i];
+                playerHand.erase(playerHand.begin() + i);
+                discardPile.push_back(currentCard);
+                applyCardEffect(currentCard, playerHand);
+                playerTurn = false;
+
+                // Check for Uno condition
+                if (playerHand.size() == 1) {
+                    // You might want to add some visual or audio cue here for "Uno!"
+                    std::cout << "Uno!" << std::endl;
+                }
+
+                return;
+            }
+            else {
+                // Provide feedback that the move is invalid
+                std::cout << "Invalid move. Try another card or draw from the deck." << std::endl;
+                return;
+            }
+        }
+    }
+}
+
+void UnoGame::handleComputerMove(std::vector<Card>& computerHand) {
+    for (size_t i = 0; i < computerHand.size(); ++i) {
+        if (isValidMove(computerHand[i])) {
+            currentCard = computerHand[i];
+            computerHand.erase(computerHand.begin() + i);
+            return;
+        }
+    }
+
+    // If no valid move, draw a card
+    drawCardFromDeck(computerHand);
+}
+
+bool UnoGame::isValidMove(const Card& playedCard) const {
+    return playedCard.getColor() == currentCard.getColor() ||
+        playedCard.getValue() == currentCard.getValue() ||
+        playedCard.getColor() == Card::Color::WILD;
+}
+
+void UnoGame::drawCardFromDeck(std::vector<Card>& hand) {
+    if (!deck.empty()) {
+        hand.push_back(deck.back());
+        deck.pop_back();
+    }
+    else if (!discardPile.empty()) {
+        deck = discardPile;
+        discardPile.clear();
+        shuffleDeck();
+        hand.push_back(deck.back());
+        deck.pop_back();
+    }
+}
+
+bool UnoGame::isGameOver(const std::vector<Card>& playerHand, const std::vector<Card>& computerHand) const {
+    return playerHand.empty() || computerHand.empty();
+}
+
+void UnoGame::displayWinner(bool playerWon) const {
+    sf::Text winnerText;
+    winnerText.setFont(font);
+    winnerText.setCharacterSize(50);
+    winnerText.setFillColor(sf::Color::Black);
+    winnerText.setString(playerWon ? "You Win!" : "Computer Wins!");
+    winnerText.setPosition(window->getSize().x / 2 - winnerText.getGlobalBounds().width / 2,
+        window->getSize().y / 2 - winnerText.getGlobalBounds().height / 2);
+    window->clear(sf::Color::White);
+    window->draw(winnerText);
+    window->display();
+}
+
+void UnoGame::drawGameState(const std::vector<Card>& playerHand, const std::vector<Card>& computerHand) {
+    drawCards(playerHand, 200, 800, true);
+    drawCards(computerHand, 200, 100, false);
+    drawCard(currentCard, window->getSize().x / 2 - 50, window->getSize().y / 2 - 75);
+    drawCard(Card(Card::Color::WILD, Card::Value::WILD, cardImagePaths["CARD_BACK"]), window->getSize().x / 2 + 100, window->getSize().y / 2 - 75);
+
+    sf::Text turnText;
+    turnText.setFont(font);
+    turnText.setCharacterSize(30);
+    turnText.setFillColor(sf::Color::Black);
+    turnText.setString(playerTurn ? "Your Turn" : "Computer's Turn");
+    turnText.setPosition(20, 20);
+    window->draw(turnText);
+}
+
+Card UnoGame::drawInitialCard() {
+    while (!deck.empty()) {
+        Card card = deck.back();
+        deck.pop_back();
+        if (card.getValue() <= Card::Value::NINE) {
+            return card;
+        }
+        discardPile.push_back(card);
+    }
+    // If we've gone through all cards without finding a number card, shuffle and try again
+    shuffleDeck();
+    return drawInitialCard();
 }
 
 void UnoGame::initializeDeck() {
@@ -71,11 +192,14 @@ void UnoGame::initializeDeck() {
             std::string key = getCardImagePath(color, value);
             if (!key.empty()) {
                 std::string imagePath = cardImagePaths[key];
-                std::cout << "Adding number card: " << key << " -> " << imagePath << std::endl;
+                if (imagePath.empty()) {
+                    std::cerr << "Warning: Empty image path for key: " << key << std::endl;
+                    // You might want to use a default image path here
+                    imagePath = "path/to/default/card/image.png";
+                }
                 deck.emplace_back(color, value, imagePath);
 
                 if (j != 0) {
-                    std::cout << "Adding second number card: " << key << " -> " << imagePath << std::endl;
                     deck.emplace_back(color, value, imagePath);
                 }
             }
@@ -93,47 +217,6 @@ void UnoGame::initializeDeck() {
             }
         }
     }
-    //deck.emplace_back(Card::Color::RED, Card::Value::ZERO, cardImagePaths[getCardImagePath(Card::Color::RED, Card::Value::ZERO)]);
-    //deck.emplace_back(Card::Color::BLUE, Card::Value::ZERO, cardImagePaths[getCardImagePath(Card::Color::BLUE, Card::Value::ZERO)]);
-    //deck.emplace_back(Card::Color::GREEN, Card::Value::ZERO, cardImagePaths[getCardImagePath(Card::Color::GREEN, Card::Value::ZERO)]);
-    //deck.emplace_back(Card::Color::YELLOW, Card::Value::ZERO, cardImagePaths[getCardImagePath(Card::Color::YELLOW, Card::Value::ZERO)]);
-    //deck.emplace_back(Card::Color::RED, Card::Value::ONE, cardImagePaths[getCardImagePath(Card::Color::RED, Card::Value::ONE)]);
-    //deck.emplace_back(Card::Color::BLUE, Card::Value::ONE, cardImagePaths[getCardImagePath(Card::Color::BLUE, Card::Value::ONE)]);
-    //deck.emplace_back(Card::Color::GREEN, Card::Value::ONE, cardImagePaths[getCardImagePath(Card::Color::GREEN, Card::Value::ONE)]);
-    //deck.emplace_back(Card::Color::YELLOW, Card::Value::ONE, cardImagePaths[getCardImagePath(Card::Color::YELLOW, Card::Value::ONE)]);
-    //deck.emplace_back(Card::Color::RED, Card::Value::TWO, cardImagePaths[getCardImagePath(Card::Color::RED, Card::Value::TWO)]);
-    //deck.emplace_back(Card::Color::BLUE, Card::Value::TWO, cardImagePaths[getCardImagePath(Card::Color::BLUE, Card::Value::TWO)]);
-    //deck.emplace_back(Card::Color::GREEN, Card::Value::TWO, cardImagePaths[getCardImagePath(Card::Color::GREEN, Card::Value::TWO)]);
-    //deck.emplace_back(Card::Color::YELLOW, Card::Value::TWO, cardImagePaths[getCardImagePath(Card::Color::YELLOW, Card::Value::TWO)]);
-    //deck.emplace_back(Card::Color::RED, Card::Value::THREE, cardImagePaths[getCardImagePath(Card::Color::RED, Card::Value::THREE)]);
-    //deck.emplace_back(Card::Color::BLUE, Card::Value::THREE, cardImagePaths[getCardImagePath(Card::Color::BLUE, Card::Value::THREE)]);
-    //deck.emplace_back(Card::Color::GREEN, Card::Value::THREE, cardImagePaths[getCardImagePath(Card::Color::GREEN, Card::Value::THREE)]);
-    //deck.emplace_back(Card::Color::YELLOW, Card::Value::THREE, cardImagePaths[getCardImagePath(Card::Color::YELLOW, Card::Value::THREE)]);
-    //deck.emplace_back(Card::Color::RED, Card::Value::FOUR, cardImagePaths[getCardImagePath(Card::Color::RED, Card::Value::FOUR)]);
-    //deck.emplace_back(Card::Color::BLUE, Card::Value::FOUR, cardImagePaths[getCardImagePath(Card::Color::BLUE, Card::Value::FOUR)]);
-    //deck.emplace_back(Card::Color::GREEN, Card::Value::FOUR, cardImagePaths[getCardImagePath(Card::Color::GREEN, Card::Value::FOUR)]);
-    //deck.emplace_back(Card::Color::YELLOW, Card::Value::FOUR, cardImagePaths[getCardImagePath(Card::Color::YELLOW, Card::Value::FOUR)]);
-    //deck.emplace_back(Card::Color::RED, Card::Value::FIVE, cardImagePaths[getCardImagePath(Card::Color::RED, Card::Value::FIVE)]);
-    //deck.emplace_back(Card::Color::BLUE, Card::Value::FIVE, cardImagePaths[getCardImagePath(Card::Color::BLUE, Card::Value::FIVE)]);
-    //deck.emplace_back(Card::Color::GREEN, Card::Value::FIVE, cardImagePaths[getCardImagePath(Card::Color::GREEN, Card::Value::FIVE)]);
-    //deck.emplace_back(Card::Color::YELLOW, Card::Value::FIVE, cardImagePaths[getCardImagePath(Card::Color::YELLOW, Card::Value::FIVE)]);
-    //deck.emplace_back(Card::Color::RED, Card::Value::SIX, cardImagePaths[getCardImagePath(Card::Color::RED, Card::Value::SIX)]);
-    //deck.emplace_back(Card::Color::BLUE, Card::Value::SIX, cardImagePaths[getCardImagePath(Card::Color::BLUE, Card::Value::SIX)]);
-    //deck.emplace_back(Card::Color::GREEN, Card::Value::SIX, cardImagePaths[getCardImagePath(Card::Color::GREEN, Card::Value::SIX)]);
-    //deck.emplace_back(Card::Color::YELLOW, Card::Value::SIX, cardImagePaths[getCardImagePath(Card::Color::YELLOW, Card::Value::SIX)]);
-    //deck.emplace_back(Card::Color::RED, Card::Value::SEVEN, cardImagePaths[getCardImagePath(Card::Color::RED, Card::Value::SEVEN)]);
-    //deck.emplace_back(Card::Color::BLUE, Card::Value::SEVEN, cardImagePaths[getCardImagePath(Card::Color::BLUE, Card::Value::SEVEN)]);
-    //deck.emplace_back(Card::Color::GREEN, Card::Value::SEVEN, cardImagePaths[getCardImagePath(Card::Color::GREEN, Card::Value::SEVEN)]);
-    //deck.emplace_back(Card::Color::YELLOW, Card::Value::SEVEN, cardImagePaths[getCardImagePath(Card::Color::YELLOW, Card::Value::SEVEN)]);
-    //deck.emplace_back(Card::Color::RED, Card::Value::EIGHT, cardImagePaths[getCardImagePath(Card::Color::RED, Card::Value::EIGHT)]);
-    //deck.emplace_back(Card::Color::BLUE, Card::Value::EIGHT, cardImagePaths[getCardImagePath(Card::Color::BLUE, Card::Value::EIGHT)]);
-    //deck.emplace_back(Card::Color::GREEN, Card::Value::EIGHT, cardImagePaths[getCardImagePath(Card::Color::GREEN, Card::Value::EIGHT)]);
-    //deck.emplace_back(Card::Color::YELLOW, Card::Value::EIGHT, cardImagePaths[getCardImagePath(Card::Color::YELLOW, Card::Value::EIGHT)]);
-    //deck.emplace_back(Card::Color::RED, Card::Value::NINE, cardImagePaths[getCardImagePath(Card::Color::RED, Card::Value::NINE)]);
-    //deck.emplace_back(Card::Color::BLUE, Card::Value::NINE, cardImagePaths[getCardImagePath(Card::Color::BLUE, Card::Value::NINE)]);
-    //deck.emplace_back(Card::Color::GREEN, Card::Value::NINE, cardImagePaths[getCardImagePath(Card::Color::GREEN, Card::Value::NINE)]);
-    //deck.emplace_back(Card::Color::YELLOW, Card::Value::NINE, cardImagePaths[getCardImagePath(Card::Color::YELLOW, Card::Value::NINE)]);
-
 
     // Add wild cards
     for (int i = 0; i < 4; i++) {
@@ -221,6 +304,10 @@ void UnoGame::initializeDeck() {
     //    deck.emplace_back(Card::Color::GREEN, Card::Value::YIN, cardImagePaths["YIN"]);
     //    deck.emplace_back(Card::Color::GREEN, Card::Value::YANG, cardImagePaths["YANG"]);
     //}
+    if (cardImagePaths.find("CARD_BACK") == cardImagePaths.end() || cardImagePaths["CARD_BACK"].empty()) {
+        std::cerr << "Warning: CARD_BACK image path is not set or empty" << std::endl;
+        cardImagePaths["CARD_BACK"] = "C:/Users/Aaron Scheffler/Desktop/UNO Hot Death/cards/back.png";
+    }
 }
 
 std::string UnoGame::getCardImagePath(Card::Color color, Card::Value value) {
@@ -417,7 +504,11 @@ std::string UnoGame::getCardImagePath(Card::Color color, Card::Value value) {
 
     std::string key = colorStr + valueStr;
     if (cardImagePaths.find(key) == cardImagePaths.end()) {
-        std::cout << "Warning: No image path found for key: " << key << std::endl;
+        std::cerr << "Warning: No image path found for key: " << key << std::endl;
+        return "";
+    }
+    if (cardImagePaths[key].empty()) {
+        std::cerr << "Warning: Empty image path for key: " << key << std::endl;
         return "";
     }
     return key;
@@ -449,13 +540,131 @@ void UnoGame::dealCards(std::vector<Card>& playerHand, std::vector<Card>& comput
     }
 }
 
-void UnoGame::drawCards(sf::RenderWindow& window, const std::vector<Card>& hand, const Card& currentCard, int x, int y) {
-    // Draw the player's or computer's cards
-    for (size_t i = 0; i < hand.size(); i++) {
-        drawCard(window, hand[i], x + i * 50, y);
+void UnoGame::drawCards(const std::vector<Card>& hand, float x, float y, bool faceUp) {
+    for (size_t i = 0; i < hand.size(); ++i) {
+        if (faceUp) {
+            drawCard(hand[i], x + i * 50, y);
+        }
+        else {
+            drawCard(Card(Card::Color::WILD, Card::Value::WILD, cardImagePaths["CARD_BACK"]), x + i * 50, y);
+        }
     }
 }
 
-void UnoGame::drawCard(sf::RenderWindow& window, const Card& card, int x, int y) {
-    card.draw(window, static_cast<float>(x), static_cast<float>(y));
+void UnoGame::drawCard(const Card& card, float x, float y) {
+    card.draw(*window, x, y);
+}
+
+void UnoGame::applyCardEffect(const Card& playedCard, std::vector<Card>& opponentHand) {
+    switch (playedCard.getValue()) {
+    case Card::Value::SKIP:
+        std::cout << "Skip effect applied. ";
+        if (playerTurn) {
+            std::cout << "Computer's turn is skipped!" << std::endl;
+        }
+        else {
+            std::cout << "Your turn is skipped!" << std::endl;
+        }
+        // In a two-player game, skipping the opponent's turn is equivalent to playing again
+        playerTurn = !playerTurn;
+        break;
+
+    case Card::Value::REVERSE:
+        std::cout << "Reverse effect applied. ";
+        if (playerTurn) {
+            std::cout << "It's your turn again!" << std::endl;
+        }
+        else {
+            std::cout << "Computer plays again!" << std::endl;
+        }
+        // In a two-player game, Reverse acts like Skip
+        playerTurn = !playerTurn;
+        break;
+
+    case Card::Value::DRAW_TWO:
+        std::cout << "Draw Two effect applied. ";
+        if (playerTurn) {
+            std::cout << "Computer draws 2 cards!" << std::endl;
+        }
+        else {
+            std::cout << "You draw 2 cards!" << std::endl;
+        }
+        for (int i = 0; i < 2; ++i) {
+            drawCardFromDeck(opponentHand);
+        }
+        // The next player's turn is skipped
+        playerTurn = !playerTurn;
+        break;
+
+    case Card::Value::WILD:
+        chooseWildCardColor();
+        break;
+
+    case Card::Value::WILD_DRAW_FOUR:
+        std::cout << "Wild Draw Four effect applied. ";
+        if (playerTurn) {
+            std::cout << "Computer draws 4 cards!" << std::endl;
+        }
+        else {
+            std::cout << "You draw 4 cards!" << std::endl;
+        }
+        for (int i = 0; i < 4; ++i) {
+            drawCardFromDeck(opponentHand);
+        }
+        chooseWildCardColor();
+        // The next player's turn is skipped
+        playerTurn = !playerTurn;
+        break;
+
+    default:
+        // For number cards, no special effect is applied
+        playerTurn = !playerTurn;
+        break;
+    }
+}
+
+// Helper function to choose a color for Wild cards
+void UnoGame::chooseWildCardColor() {
+    if (playerTurn) {
+        // If it's the player's turn, prompt for color choice
+        std::cout << "Choose a color (R)ed, (B)lue, (G)reen, (Y)ellow: ";
+        char colorChoice;
+        std::cin >> colorChoice;
+
+        switch (std::toupper(colorChoice)) {
+        case 'R':
+            currentCard = Card(Card::Color::RED, Card::Value::WILD, cardImagePaths["WILD"]);
+            break;
+        case 'B':
+            currentCard = Card(Card::Color::BLUE, Card::Value::WILD, cardImagePaths["WILD"]);
+            break;
+        case 'G':
+            currentCard = Card(Card::Color::GREEN, Card::Value::WILD, cardImagePaths["WILD"]);
+            break;
+        case 'Y':
+            currentCard = Card(Card::Color::YELLOW, Card::Value::WILD, cardImagePaths["WILD"]);
+            break;
+        default:
+            std::cout << "Invalid choice. Defaulting to Red." << std::endl;
+            currentCard = Card(Card::Color::RED, Card::Value::WILD, cardImagePaths["WILD"]);
+        }
+    }
+    else {
+        // If it's the computer's turn, randomly choose a color
+        Card::Color colors[] = { Card::Color::RED, Card::Color::BLUE, Card::Color::GREEN, Card::Color::YELLOW };
+        Card::Color chosenColor = colors[rand() % 4];
+        currentCard = Card(chosenColor, Card::Value::WILD, cardImagePaths["WILD"]);
+        std::cout << "Computer chooses " << getColorName(chosenColor) << std::endl;
+    }
+}
+
+// Helper function to get color name as string
+std::string UnoGame::getColorName(Card::Color color) {
+    switch (color) {
+    case Card::Color::RED: return "Red";
+    case Card::Color::BLUE: return "Blue";
+    case Card::Color::GREEN: return "Green";
+    case Card::Color::YELLOW: return "Yellow";
+    default: return "Unknown";
+    }
 }

@@ -3,6 +3,11 @@
 #include <iostream>
 #include <filesystem>
 
+Card::Card() : color(Color::WILD), value(Value::WILD), texture(std::make_shared<sf::Texture>()) {
+    // Load a default "back of card" texture here
+    loadTexture("C:/Users/Aaron Scheffler/Desktop/UNO Hot Death/cards/back.png");
+}
+
 Card::Card(Color color, Value value, const std::string& imagePath)
     : color(color), value(value), texture(std::make_shared<sf::Texture>()) {
     loadTexture(imagePath);
@@ -47,8 +52,11 @@ void Card::draw(sf::RenderWindow& window, float x, float y) const {
 
 void Card::loadTexture(const std::string& imagePath) {
     if (imagePath.empty()) {
-        std::cerr << "Error: Empty image path" << std::endl;
-        return; // Don't try to load an empty path
+        std::cerr << "Warning: Empty image path for card " << static_cast<int>(color)
+            << " " << static_cast<int>(value) << std::endl;
+        // Load a default texture or leave the sprite blank
+        sprite.setColor(sf::Color::White); // Make the sprite visible even without texture
+        return;
     }
 
     if (!texture) {
@@ -57,8 +65,11 @@ void Card::loadTexture(const std::string& imagePath) {
 
     if (!texture->loadFromFile(imagePath)) {
         std::cerr << "Failed to load texture: " << imagePath << std::endl;
-        // Consider using a default texture or throwing an exception
+        // Load a default texture or leave the sprite blank
+        sprite.setColor(sf::Color::White); // Make the sprite visible even without texture
     }
-    sprite.setTexture(*texture, true);
-    sprite.setScale(0.2f, 0.2f);
+    else {
+        sprite.setTexture(*texture, true);
+        sprite.setScale(0.2f, 0.2f);
+    }
 }
