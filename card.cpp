@@ -10,7 +10,15 @@ Card::Card() : color(Color::WILD), value(Value::WILD), texture(std::make_shared<
 
 Card::Card(Color color, Value value, const std::string& imagePath)
     : color(color), value(value), texture(std::make_shared<sf::Texture>()) {
-    loadTexture(imagePath);
+    if (!imagePath.empty()) {
+        loadTexture(imagePath);
+    }
+    else {
+        std::cerr << "Warning: Empty image path for card " << static_cast<int>(color)
+            << " " << static_cast<int>(value) << std::endl;
+        // Load a default texture
+        loadTexture("C:/Users/Aaron Scheffler/Desktop/UNO Hot Death/cards/back.png");
+    }
 }
 
 Card::Card(const Card& other)

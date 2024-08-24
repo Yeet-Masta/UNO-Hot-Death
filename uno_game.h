@@ -1,6 +1,8 @@
 #pragma once
 
 #include "card.h"
+#include "deck.h"
+#include "player.h"
 #include <SFML/Graphics.hpp>
 #include <vector>
 #include <map>
@@ -13,8 +15,14 @@ public:
     void play();
 
 private:
-    std::vector<Card> deck, discardPile;
-    std::map<std::string, std::string> cardImagePaths = {
+    Deck deck;
+    Player player;
+    Player computer;
+    Card currentCard;
+    bool playerTurn;
+    sf::RenderWindow window;
+    sf::Font font;
+    std::map<std::string, std::string> cardImagePaths =     {
         {"RED0", "C:/Users/Aaron Scheffler/Desktop/UNO Hot Death/cards/red_0.png"},
         {"RED1", "C:/Users/Aaron Scheffler/Desktop/UNO Hot Death/cards/red_1.png"},
         {"RED2", "C:/Users/Aaron Scheffler/Desktop/UNO Hot Death/cards/red_2.png"},
@@ -116,28 +124,16 @@ private:
         //{"YIN", "cards/yin.png"},
         //{"YANG", "cards/yang.png"},
     };
-    bool playerTurn;
-    Card currentCard;
-    sf::Font font;
-    std::unique_ptr<sf::RenderWindow> window;
-    std::mt19937 rng;
-    std::string cardBackPath;
+    sf::Texture backgroundTexture;
+    sf::Sprite backgroundSprite;
+    sf::Text statusText;
 
-    void initializeDeck();
-    std::string getCardImagePath(Card::Color color, Card::Value value);
-    void shuffleDeck();
-    void dealCards(std::vector<Card>& playerHand, std::vector<Card>& computerHand);
-    void drawCards(const std::vector<Card>& hand, float x, float y, bool faceUp);
-    void drawCard(const Card& card, float x, float y);
-    void handlePlayerMove(const sf::Event& event, std::vector<Card>& playerHand);
-    void handleComputerMove(std::vector<Card>& computerHand);
-    bool isValidMove(const Card& playedCard) const;
-    void drawCardFromDeck(std::vector<Card>& hand);
-    bool isGameOver(const std::vector<Card>& playerHand, const std::vector<Card>& computerHand) const;
-    void displayWinner(bool playerWon) const;
-    void drawGameState(const std::vector<Card>& playerHand, const std::vector<Card>& computerHand);
-    Card drawInitialCard();
-    void applyCardEffect(const Card& playedCard, std::vector<Card>& opponentHand);
-    void chooseWildCardColor();
-    std::string getColorName(Card::Color color);
+    void initializeGame();
+    void handlePlayerMove(const sf::Event& event);
+    void handleComputerMove();
+    bool isValidMove(const Card& card) const;
+    void applyCardEffect(const Card& playedCard);
+    void drawGameState();
+    void loadCardImagePaths();
+    void initializeGraphics();
 };
